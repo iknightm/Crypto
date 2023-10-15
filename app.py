@@ -1,8 +1,5 @@
-from flask import Flask, render_template, request
+import streamlit as st
 from cryptography.fernet import Fernet
-
-app = Flask(__name__)
-app.secret_key = b'secret_key_for_flask'
 
 def generate_key():
     return Fernet.generate_key()
@@ -10,30 +7,41 @@ def generate_key():
 def load_key():
     try:
         return open("secret.key", "rb").read()
-    except:
-        return generate_key()
+    except FileNotFoundError:
+        key = generate_key()
+        with open("secret.key", "wb") as key_file:
+            key_file.write(key)
+        return key
 
-key = load_key()
-fernet = Fernet(key)
+def encrypt(text, fernet):
+    return fernet.encrypt(text.encode()).decode()
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if request.method == 'POST':
-        text = request.form['text']
-        action = request.form['action']
-        
+def decrypt(text, fernet):
+    try:
+        return fernet.decrypt(text.encode()).decode()
+    except Exception as e:
+        return str(e)
+
+def main():
+    st.title('Text Encryption/Decryption App')
+    st.write("Use this app to encrypt or decrypt your text.")
+
+    text = st.text_area("Enter Text:")
+
+    key = load_key()
+    fernet = Fernet(key)
+
+    action = st.radio("Select Action:", ('Encrypt', 'Decrypt'))
+
+    if st.button("Submit"):
         if action == 'Encrypt':
-            encrypted_text = fernet.encrypt(text.encode()).decode()
-            return render_template('index.html', encrypted_text=encrypted_text)
+            encrypted_text = encrypt(text, fernet)
+            st.write('Encrypted Text:')
+            st.code(encrypted_text)
         elif action == 'Decrypt':
-            try:
-                decrypted_text = fernet.decrypt(text.encode()).decode()
-                return render_template('index.html', decrypted_text=decrypted_text)
-            except Exception as e:
-                error_message = str(e)
-                return render_template('index.html', error_message=error_message)
-    
-    return render_template('index.html')
+            decrypted_text = decrypt(text, fernet)
+            st.write('Decrypted Text:')
+            st.code(decrypted_text)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    main()
